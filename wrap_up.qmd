@@ -1,0 +1,135 @@
+---
+title: "Wrap Up"
+format: html
+editor: visual
+execute: 
+  echo: false
+  warning: false
+---
+
+```{r}
+library(tidyverse)
+library(viridis)
+library(kableExtra)
+```
+
+```{r}
+meterological <- read_csv("ntl20_v6.csv", na = "-999")
+ice <- read_csv("ntl33_v7.csv", na = "-999")
+```
+
+### Create a visualization that compares ice duration across different lakes in the Madison Lake Area. Include both the actual ice duration values and some representation of summary statistics for each lake. Careful if you use a boxplot over a jitter or beeswarm - what values might be doubly represented? Can you find an argument that would help you remove those from the boxplot?
+
+```{r}
+ggplot(ice, aes(x = lakeid, y = ice_duration, color = lakeid)) +
+  geom_jitter() +
+  theme_linedraw() +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("Mendota", "Monona", "Wingra")) +
+  labs(x = "Lake", y = "Ice Duration (days)", title = "North Temperate Lakes LTER: Ice Duration - Madison Lakes 1853 - current",
+       caption = "https://portal.edirepository.org/nis/metadataviewer?packageid=knb-lter-ntl.33.35") +
+  scale_color_viridis_d()
+
+```
+
+```{r}
+ice_table <- ice %>%
+  group_by(lakeid) %>%
+  summarise(`Mean Ice Duration (days)` = mean(ice_duration, na.rm = TRUE),
+            `Standard Dev. Ice Duration (days)` = sd(ice_duration, na.rm = TRUE),
+            Count = n()) %>%
+  kable(col.names = c("Lake", "Mean Ice Duration (days)", "Standard Dev. Ice Duration (days)", "Count")) %>%
+  kable_styling(full_width = FALSE)
+
+ice_table
+```
+
+### Find the mean ice cover duration in Madison Lake Area by year (i.e., you’ll only be grouping by the year variable here). Understanding check: what are you finding the mean of here? Why are there multiple observations for each year?)
+
+```{r}
+ice_avg <- ice %>%
+  group_by(year4) %>%
+  summarise(mean = mean(ice_duration, na.rm = TRUE))
+  
+ice %>%
+  group_by(year4) %>%
+  summarise(mean = mean(ice_duration, na.rm = TRUE)) %>%
+  kable(col.names = c("Year", "Mean Ice Duration (days)"))
+```
+
+There are multiple observations per year since there are multiple lakes being surveryed. 
+
+### Create an exploratory visualization of mean ice cover duration by year for the Madison Lake Area. Add a sentence or two below this exploratory graph describing the overall trend(s) you observe.
+
+```{r}
+ggplot(ice, aes(x = year4, y = ice_duration, color = lakeid)) +
+  geom_point() +
+  labs(x = "Year", y = "Ice Duration (days)", color = "Lake") +
+  theme_linedraw() +
+  scale_color_viridis_d(labels=c("Mendota", "Monona", "Wingra"))
+```
+
+From 1853 to present there has been a decrease in ice duration for all three of the lakes. Wingera generally has a slightly higher ice duration. 
+
+### Find the mean air temperature (using the daily average air temperature - adjusted) in Madison Lake Area by year using only observations from winter months (December, January, February)
+
+```{r}
+meteo_winter <- meterological %>%
+  filter(month %in% c(12, 1, 2))
+
+meteo_winter %>%
+  group_by(year4) %>%
+  summarise(mean = mean(ave_air_temp_adjusted, na.rm = TRUE), count = n()) %>%
+  kable(col.names = c("Year", "Mean Daily Average Air Temperature (ºC)", "Count")) %>%
+  kable_styling(full_width = FALSE)
+
+meteo_winter_avg <- meteo_winter %>%
+  group_by(year4) %>%
+  summarise(mean_temp = mean(ave_air_temp_adjusted, na.rm = TRUE))
+  
+```
+
+### Create an exploratory visualization of mean winter temperatures for the Madison Lake Area. Add a sentence or two below this exploratory graph describing the overall trend(s) you observe.
+
+```{r}
+ggplot(meteo_winter, aes(ave_air_temp_adjusted)) +
+  geom_histogram() +
+  labs(x = "Average Daily Air Temperature (ºC)",
+       title = "Madison Wisconsin Daily Meteorological Data 1869 - current") +
+  theme_linedraw()
+```
+
+### Join the mean winter air temperatures to the mean ice cover duration data you found above
+
+```{r}
+meteo_ice <- meteo_winter_avg %>%
+  full_join(ice_avg)
+```
+
+### Create an exploratory scatterplot of mean winter temperatures versus mean ice duration. Add a sentence or two below this exploratory graph describing the overall trend(s) you observe.
+
+```{r}
+ggplot(meteo_ice, aes(x = mean_temp, mean)) +
+  geom_point() +
+  labs(x = "Mean Daily Average Air Temperature (ºC)", y = "Mean Ice Duration (days)", title = "Ice Duration and Air Temperature - Madison Lakes 1853 - current") +
+  theme_linedraw()
+```
+
+As the mean daily average air temperature increases, the mean ice duration generally decreases.
+
+### Explore thaw dates since 1970. Create a subset of the ice cover duration data since 1970 (ok to include 1970), then convert the ice_off column to a Date. Use lubridate::yday() to pull the numeric day of the year from that Date. Create an exploratory plot of the ice off day (numeric day-of-the-year) from 1970 - present. Add a sentence or two below this exploratory graph describing the overall trend(s) you observe.
+
+```{r}
+ice_1970 <- ice %>%
+  filter(year4 >= 1970) %>%
+  mutate(ice_off = lubridate::ymd(ice_off),
+         ice_off = lubridate::yday(ice_off))
+
+ggplot(ice_1970, aes(x = year4, y = ice_off)) +
+  geom_point() +
+  labs(x = "Year", y = "Ice off day of year") +
+  theme_linedraw()
+```
+
+
+
